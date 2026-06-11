@@ -96,7 +96,23 @@ class NetsecDispatchPlugin(IndicoPlugin):
         if not self.settings.get('enabled'):
             return
         event = self._resolve_event(sender, kwargs)
-        if event is None or not self._is_watched(event):
+        if event is None:
+            # No event resolved — log the signal shape so the test plan can
+            # confirm the resolver against the live Indico build (README §2.1).
+            self.logger.debug(
+                'netsec-dispatch: signal did not resolve to an event '
+                '(sender=%r, kwargs=%s)', sender, sorted(kwargs))
+            return
+        watched = self._is_watched(event)
+        # category_chain is a deferred column property already loaded by
+        # _is_watched, so reading it here is free. Shows exactly why an event
+        # was (or was not) dispatched — makes test-plan steps 2 and 5 explicit.
+        self.logger.debug(
+            'netsec-dispatch: event %s category_chain=%s watched_id=%s -> %s',
+            event.id, getattr(event, 'category_chain', None),
+            self.settings.get('watched_category_id'),
+            'WATCHED (scheduling dispatch)' if watched else 'not watched (skipping)')
+        if not watched:
             return
         self._schedule(event.id)
 
