@@ -1,0 +1,33 @@
+[project]
+name = 'indico-plugin-netsec-dispatch'
+description = 'Fire a GitHub repository_dispatch when the watched EISS Indico programme changes, so the NetSec static site refreshes within ~1 minute instead of waiting for the daily polling sync.'
+readme = 'README.md'
+version = '0.1.0'
+license = 'MIT'
+authors = [{ name = 'EISS / NetSec', email = 'contact@netsec-cost.eu' }]
+classifiers = [
+    'Environment :: Plugins',
+    'Environment :: Web Environment',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3.12',
+]
+requires-python = '>=3.12.2, <3.13'
+# `requests` ships with Indico; pinned-by-Indico, declared here for clarity.
+dependencies = ['indico>=3.3', 'requests']
+
+[project.urls]
+Plan = 'https://github.com/EISSeuropa/netsec.github.io/blob/main/docs/indico-integration.md'
+Issue = 'https://github.com/EISSeuropa/netsec.github.io/issues/823'
+
+# The entry-point group Indico scans to discover plugins. The left-hand
+# name (`netsec_dispatch`) is the plugin's registered name — it must match
+# the `plugin=` kwarg on the Celery task and the entry in indico.conf PLUGINS.
+[project.entry-points.'indico.plugins']
+netsec_dispatch = 'indico_netsec_dispatch.plugin:NetsecDispatchPlugin'
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'
+
+[tool.hatch.build]
+packages = ['indico_netsec_dispatch']
