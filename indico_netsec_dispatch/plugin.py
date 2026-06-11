@@ -96,7 +96,23 @@ class NetsecDispatchPlugin(IndicoPlugin):
         if not self.settings.get('enabled'):
             return
         event = self._resolve_event(sender, kwargs)
-        if event is None or not self._is_watched(event):
+        if event is None:
+            # No event resolved — log the signal shape so the test plan can
+            # confirm the resolver against the live Indico build (README §2.1).
+            self.logger.debug(
+                'netsec-dispatch: signal did not resolve to an event '
+                '(sender=%r, kwargs=%s)', sender, sorted(kwargs))
+            return
+        watched = self._is_watched(event)
+        # category_chain is a deferred column property already loaded by
+        # _is_watched, so reading it here is free. Shows exactly why an event
+        # was (or was not) dispatched — makes test-plan steps 2 and 5 explicit.
+        self.logger.debug(
+            'netsec-dispatch: event %s category_chain=%s watched_id=%s -> %s',
+            event.id, getattr(event, 'category_chain', None),
+            self.settings.get('watched_category_id'),
+            'WATCHED (scheduling dispatch)' if watched else 'not watched (skipping)')
+        if not watched:
             return
         self._schedule(event.id)
 
@@ -126,11 +142,17 @@ class NetsecDispatchPlugin(IndicoPlugin):
 
     def _is_watched(self, event):
         watched = self.settings.get('watched_category_id')
-        # category_chain_ids lists the event's category and all its ancestors,
-        # so a watch on a parent category catches its sub-categories too.
-        chain = getattr(event, 'category_chain_ids', None)
+        # Event.category_chain is the list of category ids from the root down
+        # to and including the event's own category, so a watch on a parent
+        # category catches events in its sub-categories too. (Verified against
+        # Indico v3.3.12: the attribute is `category_chain`, NOT
+        # `category_chain_ids` — that name exists only on the Category model as
+        # `Category.chain_ids`.) Falls back to the immediate category only if
+        # the chain is unavailable (e.g. an event not filed under a category).
+        chain = getattr(event, 'category_chain', None)
         if not chain:
-            chain = [getattr(event, 'category_id', None)]
+            cid = getattr(event, 'category_id', None)
+            chain = [cid] if cid is not None else []
         return watched in chain
 
     def _schedule(self, event_id):
